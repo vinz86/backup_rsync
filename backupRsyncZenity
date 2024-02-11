@@ -1,0 +1,118 @@
+#!/bin/bash
+
+doBackup(){
+  LOG_ENABLED=true
+
+  CURRENT_DIRECTORY="$PWD"
+
+  cd "$NEW_INPUT_FOLDER" ||
+  if [ $? -eq 1 ]; then
+      zenity --notification --window-icon="info" --text="Errore: $NEW_INPUT_FOLDER non esistente: $(date)"
+      if [ ${LOG_ENABLED} = true ]; then
+        echo "KO - Errore: $NEW_INPUT_FOLDER non esistente: $(date)" >> "$NEW_LOG_FILE"
+      fi
+    exit 1
+  fi
+
+  cd "$NEW_OUTPUT_FOLDER" ||
+  if [ $? -eq 1 ]; then
+      zenity --notification --window-icon="info" --text="Errore: $NEW_OUTPUT_FOLDER non esistente: $(date)"
+      if [ ${LOG_ENABLED} = true ]; then
+        echo "KO - Errore: $NEW_OUTPUT_FOLDER non esistente: $(date)" >> "$NEW_LOG_FILE"
+      fi
+    exit 1
+  fi
+
+  # Ritorno nella directory dello script
+  cd "$CURRENT_DIRECTORY" ||
+
+  sudo -S
+
+  # TODO Aggiungere funzione exclude: es. --exclude={'.cache/*','.local/share/Trash','.mozilla/*'}
+  RSYNC_COMMAND=$(rsync $NEW_OPTIONS_RSYNC "$NEW_INPUT_FOLDER" "$NEW_OUTPUT_FOLDER")
+  if [ $? -eq 0 ]; then
+    if [ -n "${RSYNC_COMMAND}" ]; then
+      zenity --notification --window-icon="info" --text="Backup eseguito: $(date)"
+      if [ ${LOG_ENABLED} = true ]; then
+        echo "OK - Backup eseguito: $(date)" >> "$NEW_LOG_FILE"
+      fi
+    else
+      zenity --notification --window-icon="info" --text="Backup eseguito senza modifiche: $(date)"
+      if [ ${LOG_ENABLED} = true ]; then
+        echo "NM - Backup eseguito: nessuna modifica: $(date)" >> "$NEW_LOG_FILE"
+      fi
+    fi
+  else
+    zenity --notification --window-icon="info" --text="Backup: si è verificato un errore: $(date)"
+    if [ ${LOG_ENABLED} = true ]; then
+      echo "KO - Errore: backup non eseguito: $(date)" >> "$NEW_LOG_FILE"
+    fi
+    exit 1
+  fi
+
+}
+
+# PROGRAMMA PRINCIPALE
+while true; do
+
+  FOLDERS=$(zenity --info --title 'Backup con rsync' \
+    --text "Seleziona le cartelle.\n\nIl file di log di default è: $PWD/backup_log.log" \
+    --ok-label Esci \
+    --extra-button Log_File \
+    --extra-button Input_Folder \
+    --extra-button Output_Folder \
+     )
+
+  if [[ $FOLDERS = "" ]]; then
+    exit 1
+  elif [[ $FOLDERS = "Input_Folder" ]]
+  then
+        NEW_INPUT_FOLDER=`zenity --file-selection --title="Seleziona carella da copiare"  --directory`
+  elif [[ $FOLDERS = "Output_Folder" ]]
+  then
+        NEW_OUTPUT_FOLDER=`zenity --file-selection --title="Seleziona carella di destinazione"  --directory`
+  elif [[ $FOLDERS = "Log_File" ]]
+  then
+        NEW_LOG_FILE=`zenity --file-selection --title="Seleziona file di log"`
+  fi
+
+  # Se sono state selezionate le cartelle input e output proseguo
+  if [[ "$NEW_INPUT_FOLDER" != "" && "$NEW_OUTPUT_FOLDER" != "" && "$NEW_INPUT_FOLDER" != "$NEW_OUTPUT_FOLDER" ]]; then
+
+    #Se non è stato selezionato il file di log $PWD/backup_log.log
+    if [[ $NEW_LOG_FILE = "" ]]; then
+      NEW_LOG_FILE="$PWD/backup_log.log"
+      # Controllo se il file esiste
+      if [ -f "$NEW_LOG_FILE" ]; then
+        echo "$NEW_LOG_FILE esistente."
+      else
+        touch "$NEW_LOG_FILE"
+      fi
+    fi
+
+    OPTIONS=$(zenity --list --checklist --title "Opzioni del backup" --text "Seleziona le opzioni di rsync" --column "" --column "Opzioni" False archive False recursive False itemize-changes False verbose False human-readable False delete)
+    if [ $? = 1 ]; then
+        exit 1
+    fi
+
+    # Splitto $OPTIONS in un array
+    IFS='|' read -r -a OPTIONS_RSYNC <<< "$OPTIONS"
+
+    for option in "${OPTIONS_RSYNC[@]}"
+    do
+        NEW_OPTIONS_RSYNC+="--$option "
+    done
+
+    _INPUT_VALUES="Input folder: $NEW_INPUT_FOLDER\n\nOutput folder: $NEW_OUTPUT_FOLDER\n\nOpzioni rsync: $NEW_OPTIONS_RSYNC"
+    _INPUT_VALUES+="\n\nIl comando che verrà eseguito è: \nrsync $NEW_OPTIONS_RSYNC $NEW_INPUT_FOLDER $NEW_OUTPUT_FOLDER"
+    _INPUT_VALUES+="\n\nVoui davvero proseguire con il backup?"
+
+    zenity --question --title="Controlla i valori inseriti:" --text="$_INPUT_VALUES"
+    if [ $? = 0 ]; then
+        doBackup
+    else
+        exit 1
+    fi
+
+  fi
+done

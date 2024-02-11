@@ -1,8 +1,8 @@
-BACKUP HOME
+# BACKUP HOME
 
 -rendere i file eseguibili
 
-``chmod 775 backup_home_rsync.sh``
+`` chmod 775 backup_home_rsync.sh``
 
 ``chmod 775 backup_notify``
 
@@ -16,8 +16,4 @@ BACKUP HOME
 ``
 ----------
 
-o aggiungere il comando in avvio automatico:
-
-``bash /home/nome_utente/backup_home/backup_home_rsync.sh``
-
-
+o aggiungere lo script in avvio automatico

@@ -114,5 +114,21 @@ while true; do
         exit 1
     fi
 
+    END=$(zenity --info --title 'Fine procedura di backup' \
+      --text "Esci o effettua un nuovo backup" \
+      --ok-label Esci \
+      --extra-button NuovoBackup
+       )
+
+    if [[ $END = "" ]]; then
+      exit 1
+    else
+      #Resetto le variabili
+      NEW_OUTPUT_FOLDER=""
+      NEW_INPUT_FOLDER=""
+      NEW_LOG_FILE=""
+      NEW_OPTIONS_RSYNC=""
+    fi
+
   fi
 done
